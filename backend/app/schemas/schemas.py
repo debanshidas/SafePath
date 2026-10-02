@@ -153,6 +153,14 @@ class SOSCreate(CamelModel):
     battery_level: str = "84%"
 
 
+class Delivery(CamelModel):
+    to: str
+    ok: bool
+    status: str
+    detail: str = ""
+    message_id: str | None = None
+
+
 class SOSOut(CamelModel):
     id: str
     timestamp: datetime
@@ -161,6 +169,11 @@ class SOSOut(CamelModel):
     alert_sent_to: str
     battery_level: str
     status: str
+    # "sent" | "failed" | "partial" | "not_configured" | "no_contacts"
+    delivery_status: str = "not_configured"
+    delivered_count: int = 0
+    recipient_count: int = 0
+    deliveries: list[Delivery] = []
 
     @field_serializer("timestamp")
     def _ser_dt(self, value: datetime) -> str | None:
@@ -195,3 +208,19 @@ class ProfileUpdate(CamelModel):
     )
     vibrate_in_risk_zones: bool | None = None
     auto_check_in_mins: int | None = None
+
+
+class NotificationStatus(CamelModel):
+    sms_configured: bool
+    provider: str | None = None
+    from_number: str | None = None
+    detail: str = ""
+
+
+class TestAlertOut(CamelModel):
+    ok: bool
+    status: str
+    detail: str = ""
+    contact_name: str
+    sent_to: str
+    preview: str

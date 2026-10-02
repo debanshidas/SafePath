@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Journey, LocationPing, User
+from ..models import Contact, Journey, LocationPing, User
 from ..schemas import JourneyCreate, JourneyOut, LocationUpdate
+from ..services import notifications
 from ..services.serializers import journey_out
 from ..utils.auth import current_user
 
@@ -87,7 +88,28 @@ def create_journey(
     )
     db.commit()
     db.refresh(journey)
+
+    _notify_journey_start(db, user, journey)
     return journey_out(journey)
+
+
+def _notify_journey_start(db: Session, user: User, journey: Journey) -> None:
+    """Text contacts who opted into start-of-journey alerts. Best effort: a
+    delivery failure must not prevent the journey from being tracked."""
+    recipients = (
+        db.query(Contact)
+        .filter(Contact.user_id == user.id, Contact.notify_on_start.is_(True))
+        .all()
+    )
+    if not recipients:
+        return
+    body = notifications.journey_started_message(
+        user_name=user.name or "A SafePath user",
+        origin=journey.origin,
+        destination=journey.destination,
+        share_token=journey.share_token,
+    )
+    notifications.send_bulk([c.phone for c in recipients], body)
 
 
 @router.get("/{journey_id}", response_model=JourneyOut)

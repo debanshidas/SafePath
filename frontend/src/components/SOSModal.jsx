@@ -10,12 +10,14 @@ export default function SOSModal({ isOpen, onClose }) {
   const [dispatched, setDispatched] = useState(false);
   const [sirenOn, setSirenOn] = useState(false);
   const [primaryContact, setPrimaryContact] = useState(null);
+  const [delivery, setDelivery] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
       setCountdown(5);
       setDispatched(false);
       setSirenOn(false);
+      setDelivery(null);
       const contacts = getStoredContacts();
       const primary = contacts.find((c) => c.isPrimary) || contacts[0];
       setPrimaryContact(primary);
@@ -43,13 +45,21 @@ export default function SOSModal({ isOpen, onClose }) {
     playSiren();
 
     try {
-      await triggerSOS({
+      const result = await triggerSOS({
         location: 'Connaught Place Outer Ring, New Delhi (28.6289° N, 77.2190° E)',
         coords: [28.6289, 77.2190],
       });
-      toast.success('Emergency SOS Alert Dispatched to contacts & nearest authorities!');
+      setDelivery(result);
+      if (result?.deliveredCount > 0) {
+        toast.success(
+          `SOS sent to ${result.deliveredCount} of ${result.recipientCount} contacts`,
+        );
+      } else {
+        toast.error('SOS recorded, but no message could be sent');
+      }
     } catch {
-      toast.error('Failed to broadcast SOS to server');
+      setDelivery(null);
+      toast.error('Failed to record SOS on the server');
     }
   };
 
@@ -133,18 +143,30 @@ export default function SOSModal({ isOpen, onClose }) {
             </h2>
 
             <div className="glass-card-light p-4 rounded-xl text-left my-5 space-y-2 border border-white/10">
-              <div className="text-xs text-surface-200">Simulated Alert Message:</div>
+              <div className="text-xs text-surface-200">Alert Message:</div>
               <p className="text-sm font-mono text-emerald-300 bg-black/40 p-3 rounded-lg leading-relaxed">
-                🚨 EMERGENCY SOS: Priya Sharma requires urgent assistance!
+                SAFEPATH EMERGENCY ALERT
                 <br />
-                📍 Location: Connaught Place, New Delhi (28.6289° N, 77.2190° E)
+                Location: Connaught Place, New Delhi (28.6289° N, 77.2190° E)
                 <br />
-                🗺️ Live Map: https://safepath.app/share/safe_live_sos
-                <br />
-                🔋 Battery: 84%
+                Live tracking link + battery level included
               </p>
-              <div className="text-xs text-surface-200/80">
-                Delivered via SMS & WhatsApp to: <strong>{primaryContact?.name} ({primaryContact?.phone})</strong>
+              {delivery?.deliveredCount > 0 ? (
+                <div className="text-xs text-emerald-300">
+                  Sent by SMS to <strong>{delivery.deliveredCount}</strong> of{' '}
+                  <strong>{delivery.recipientCount}</strong> contacts
+                  {primaryContact ? <> — primary: <strong>{primaryContact.name}</strong></> : null}
+                </div>
+              ) : (
+                <div className="text-xs text-amber-300">
+                  <strong className="text-white">Recorded, not sent.</strong>{' '}
+                  {delivery?.deliveryStatus === 'not_configured'
+                    ? 'No SMS provider is configured, so no contact was notified.'
+                    : 'No message could be delivered to your contacts.'}
+                </div>
+              )}
+              <div className="text-xs text-surface-200/60">
+                SafePath does not contact police or emergency services. In India, dial 112.
               </div>
             </div>
 

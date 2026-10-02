@@ -123,6 +123,10 @@ class SOSEvent(Base):
     alert_sent_to: Mapped[str] = mapped_column(String(400), default="Emergency Contacts")
     battery_level: Mapped[str] = mapped_column(String(10), default="84%")
     status: Mapped[str] = mapped_column(String(50), default="Alert Dispatched")
+    # Outcome of the outbound SMS attempt, e.g. "sent", "not_configured".
+    delivery_status: Mapped[str] = mapped_column(String(50), default="not_configured")
+    delivered_count: Mapped[int] = mapped_column(Integer, default=0)
+    recipient_count: Mapped[int] = mapped_column(Integer, default=0)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     user: Mapped[User] = relationship(back_populates="sos_events")

@@ -19,6 +19,19 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{(PROJECT_ROOT / 'backend' / 'safepath.db').as_posix()}"
 
     firebase_service_account_path: str = "./firebase-service-account.json"
+
+    # ---- SMS delivery (Twilio) ----
+    # Without all three set, alerts are recorded but no SMS is sent, and the
+    # API reports that plainly so the UI can say so too.
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from_number: str = ""
+    # Prepended to contact numbers stored without a country code.
+    default_country_code: str = "+91"
+    # Base URL used to build live-tracking links inside outgoing messages.
+    public_app_url: str = "http://localhost:5173"
+    # Alert every contact on SOS, not only the primary one.
+    sos_notify_all_contacts: bool = True
     cors_origins: str = "http://localhost:5173,http://localhost:5174,http://localhost:5175"
 
     # When no Firebase service account is present the backend still serves

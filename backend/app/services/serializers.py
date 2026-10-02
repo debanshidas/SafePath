@@ -44,4 +44,7 @@ def sos_out(event: SOSEvent) -> SOSOut:
         alert_sent_to=event.alert_sent_to,
         battery_level=event.battery_level,
         status=event.status,
+        delivery_status=event.delivery_status,
+        delivered_count=event.delivered_count,
+        recipient_count=event.recipient_count,
     )

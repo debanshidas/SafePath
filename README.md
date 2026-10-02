@@ -7,7 +7,8 @@ A women's safety web application designed to help users make informed travel dec
 - **Route Planning** — Enter origin & destination, compare routes on an interactive map
 - **Safety Risk Indicator** — Rule-based safety scoring (LOW / MEDIUM / HIGH)
 - **Active Journey Tracking** — Real-time location sharing with trusted contacts
-- **Emergency SOS** — One-tap alert recorded and routed to your primary contact
+- **Emergency SOS** — One-tap alert that texts your emergency contacts your
+  location, battery level and a live tracking link
 
 ## Tech Stack
 
@@ -18,7 +19,7 @@ A women's safety web application designed to help users make informed travel dec
 | Database | SQLAlchemy — SQLite by default, PostgreSQL optional |
 | Auth | Firebase Authentication |
 | Maps | Leaflet + OpenStreetMap tiles (no API key required) |
-| Notifications | In-app toasts (push notifications not yet implemented) |
+| Notifications | Twilio SMS (optional; alerts are recorded either way) |
 
 ## Prerequisites
 
@@ -34,6 +35,8 @@ Optional — the app runs without them:
   local accounts and the backend serves a single shared demo user.
 - A Google Maps Platform API key. Maps are rendered with Leaflet and
   OpenStreetMap tiles, so no key is needed.
+- A Twilio account. Without one, alerts are recorded and the UI states plainly
+  that nothing was sent.
 
 ## Quick Start
 
@@ -100,6 +103,8 @@ All routes are under `/api`.
 | `POST` | `/journeys/{id}/location` | Location ping or check-in |
 | `POST` | `/safety/assess` | Rule-based route risk indicator |
 | `GET` `POST` | `/sos` | SOS history / dispatch an alert |
+| `GET` | `/sos/status` | Whether SMS delivery is configured |
+| `POST` | `/contacts/{id}/test-alert` | Send a test SMS to one contact |
 | `GET` | `/share/{token}` | Public read of a shared journey (no auth) |
 
 ## Project Structure
@@ -135,9 +140,45 @@ safepath/
 
 See [`.env.example`](.env.example) for the full list of required variables.
 
+## SMS alerts
+
+Alerts are sent over Twilio. Three settings in `.env` turn delivery on:
+
+```bash
+TWILIO_ACCOUNT_SID=ACxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxx
+TWILIO_FROM_NUMBER=+15005550006
+```
+
+Messages are sent when you press SOS, when a journey starts (to contacts with
+"notify on start" enabled), and when you use **Test Alert** on the Emergency
+Contacts page.
+
+**Until those are set, no message is sent to anyone.** The app does not pretend
+otherwise: `GET /api/sos/status` reports `smsConfigured: false`, the contacts
+page shows a warning banner, and the SOS screen says "Recorded, not sent".
+
+On a Twilio trial account you can only text numbers you have verified in the
+Twilio console, so replace the seeded demo contacts with your own number before
+testing. Trial messages also carry a Twilio prefix.
+
+To check the delivery wiring without sending real messages:
+
+```bash
+cd backend
+.venv/Scripts/python.exe test_sms.py      # number handling, templates, results
+.venv/Scripts/python.exe test_api_sms.py  # the HTTP routes, end to end
+```
+
 ## ⚠️ Disclaimer
 
-SafePath's safety risk indicator uses **sample data** for development purposes. Risk scores are **indicators only** and do **not** guarantee safety. This application does **not** automatically contact police or emergency services.
+SafePath's safety risk indicator uses **sample data** for development purposes.
+Risk scores are **indicators only** and do **not** guarantee safety.
+
+This application does **not** contact police or emergency services, and it does
+**not** place phone calls. It sends SMS to the emergency contacts you configure,
+and only when Twilio credentials are present. Do not rely on it as your sole
+means of getting help in an emergency.
 
 ## License
 

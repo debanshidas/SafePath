@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Contact, User
-from ..schemas import ContactCreate, ContactOut, ContactUpdate
+from ..schemas import ContactCreate, ContactOut, ContactUpdate, TestAlertOut
+from ..services import notifications
 from ..utils.auth import current_user
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
@@ -117,3 +118,27 @@ def delete_contact(
     db.commit()
     _ensure_one_primary(db, user)
     return list_contacts(user, db)
+
+
+@router.post("/{contact_id}/test-alert", response_model=TestAlertOut)
+def send_test_alert(
+    contact_id: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Send a real (clearly-labelled) test SMS to one contact.
+
+    Returns the exact delivery outcome, including "not_configured" when no SMS
+    provider is set up, so the UI never implies a message was delivered.
+    """
+    contact = _owned(db, user, contact_id)
+    body = notifications.test_message(user.name or "A SafePath user", contact.name)
+    result = notifications.send_sms(contact.phone, body)
+    return TestAlertOut(
+        ok=result.ok,
+        status=result.status,
+        detail=result.detail,
+        contact_name=contact.name,
+        sent_to=result.to,
+        preview=body,
+    )

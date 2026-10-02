@@ -96,6 +96,29 @@ export const setPrimaryContact = async (id) => {
   }
 };
 
+export const sendTestAlert = async (id) => {
+  try {
+    const res = await api.post(`/contacts/${id}/test-alert`);
+    return res.data;
+  } catch (err) {
+    // No backend reachable: say so rather than implying a message was sent.
+    return {
+      ok: false,
+      status: 'offline',
+      detail: err?.message || 'Could not reach the SafePath server',
+    };
+  }
+};
+
+export const getSmsStatus = async () => {
+  try {
+    const res = await api.get('/sos/status');
+    return res.data;
+  } catch {
+    return { smsConfigured: false, provider: null, detail: 'Server unreachable' };
+  }
+};
+
 // ===== Journeys =====
 export const createJourney = async (data) => {
   try {

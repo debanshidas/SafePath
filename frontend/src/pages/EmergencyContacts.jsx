@@ -10,7 +10,15 @@ import {
   HiX,
   HiOutlineInformationCircle,
 } from 'react-icons/hi';
-import { getContacts, createContact, updateContact, deleteContact, setPrimaryContact } from '../services/api';
+import {
+  getContacts,
+  createContact,
+  updateContact,
+  deleteContact,
+  setPrimaryContact,
+  sendTestAlert,
+  getSmsStatus,
+} from '../services/api';
 import toast from 'react-hot-toast';
 
 export default function EmergencyContacts() {
@@ -19,6 +27,9 @@ export default function EmergencyContacts() {
   const [editingContact, setEditingContact] = useState(null);
   const [testAlertOpen, setTestAlertOpen] = useState(false);
   const [testContact, setTestContact] = useState(null);
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState(null);
+  const [smsStatus, setSmsStatus] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -39,6 +50,7 @@ export default function EmergencyContacts() {
 
   useEffect(() => {
     loadContacts();
+    getSmsStatus().then(setSmsStatus);
   }, []);
 
   const openAddModal = () => {
@@ -109,7 +121,25 @@ export default function EmergencyContacts() {
     }
   };
 
+  const handleSendTest = async () => {
+    setSending(true);
+    try {
+      const result = await sendTestAlert(testContact.id);
+      setSendResult(result);
+      if (result.ok) {
+        toast.success(`Test SMS sent to ${testContact.name}`);
+      } else if (result.status === 'not_configured') {
+        toast.error('No SMS provider configured — nothing was sent');
+      } else {
+        toast.error(`Could not send: ${result.detail || result.status}`);
+      }
+    } finally {
+      setSending(false);
+    }
+  };
+
   const triggerTestAlert = (contact) => {
+    setSendResult(null);
     setTestContact(contact);
     setTestAlertOpen(true);
   };
@@ -140,9 +170,23 @@ export default function EmergencyContacts() {
       <div className="p-4 rounded-xl bg-primary-500/10 border border-primary-500/20 text-xs text-purple-200 flex items-start gap-3">
         <HiOutlineInformationCircle className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
         <div>
-          <strong className="text-white">Primary Contact Priority:</strong> When you press the Emergency SOS button, your primary contact immediately receives an automated phone dial and high-priority SMS containing your exact GPS coordinates and device battery status.
+          <strong className="text-white">Primary Contact Priority:</strong> When you press
+          the Emergency SOS button, every contact below is texted your GPS coordinates,
+          battery level and a live tracking link — your primary contact is listed first.
+          SafePath does not place phone calls and does not contact police or emergency services.
         </div>
       </div>
+
+      {smsStatus && !smsStatus.smsConfigured && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 flex items-start gap-3">
+          <HiOutlineInformationCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <strong className="text-white">SMS delivery is off.</strong> Alerts are recorded
+            but no message is sent to anyone. Add Twilio credentials to{' '}
+            <code className="font-mono">.env</code> to turn on real delivery — see the README.
+          </div>
+        </div>
+      )}
 
       {/* Contacts List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -344,35 +388,60 @@ export default function EmergencyContacts() {
 
             <div className="flex items-center gap-2 text-emerald-400 mb-2">
               <HiShieldCheck className="w-6 h-6" />
-              <h3 className="text-lg font-bold text-white">Simulated SMS Alert Preview</h3>
+              <h3 className="text-lg font-bold text-white">Send a Test Alert</h3>
             </div>
             <p className="text-xs text-surface-200 mb-4">
-              Here is the exact message that would be delivered to{' '}
-              <strong className="text-white">{testContact.name} ({testContact.phone})</strong> in an emergency:
+              This sends a real SMS to{' '}
+              <strong className="text-white">{testContact.name} ({testContact.phone})</strong>,
+              clearly marked as a test. An actual emergency alert also includes your live
+              location and tracking link.
             </p>
 
-            <div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 font-mono text-xs text-emerald-300 leading-relaxed mb-5 shadow-inner">
-              🚨 SAFEPATH EMERGENCY ALERT:
-              <br /><br />
-              Priya Sharma triggered an SOS alert!
-              <br /><br />
-              📍 Current Location: Connaught Place, New Delhi (28.6289° N, 77.2190° E)
-              <br />
-              🗺️ Live Tracking: https://safepath.app/share/safe_demo_track
-              <br />
-              🔋 Battery: 84%
-              <br /><br />
-              Please contact them immediately or dial local police (112).
+            <div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 font-mono text-xs text-emerald-300 leading-relaxed mb-4 shadow-inner whitespace-pre-wrap">
+              {sendResult?.preview ||
+                `SAFEPATH TEST ALERT
+
+Hi ${testContact.name} — this is a test, not a real emergency.
+
+You are set up as a SafePath emergency contact. In a real alert this message would include the sender's live location and a tracking link.`}
             </div>
 
+            {sendResult && (
+              <div
+                className={`rounded-xl p-3 mb-4 text-xs border ${
+                  sendResult.ok
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+                    : 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+                }`}
+              >
+                {sendResult.ok ? (
+                  <>
+                    <strong className="text-white">Delivered.</strong> Sent to {sendResult.sentTo}.
+                  </>
+                ) : sendResult.status === 'not_configured' ? (
+                  <>
+                    <strong className="text-white">Nothing was sent.</strong> No SMS provider is
+                    configured, so this message was not delivered to anyone.
+                  </>
+                ) : (
+                  <>
+                    <strong className="text-white">Not delivered.</strong>{' '}
+                    {sendResult.detail || sendResult.status}
+                  </>
+                )}
+              </div>
+            )}
+
             <button
-              onClick={() => {
-                toast.success(`Test alert broadcasted to ${testContact.name}!`);
-                setTestAlertOpen(false);
-              }}
+              onClick={handleSendTest}
+              disabled={sending || sendResult?.ok}
               className="btn-primary w-full py-2.5 text-sm"
             >
-              Send Live Test Notification
+              {sending
+                ? 'Sending…'
+                : sendResult?.ok
+                  ? 'Test Alert Sent'
+                  : 'Send Test SMS'}
             </button>
           </div>
         </div>
