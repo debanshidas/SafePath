@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: safepath_db
+    environment:
+      POSTGRES_USER: safepath_user
+      POSTGRES_PASSWORD: safepath_pass
+      POSTGRES_DB: safepath_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
